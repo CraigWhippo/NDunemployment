@@ -1,0 +1,158 @@
+---
+title: "North Dakota Unemployment Analysis"
+output: html_notebook
+---
+```{r include=FALSE}
+library(tidyquant)
+library(tidyverse)
+library(plotly)
+```
+
+```{r include=FALSE}
+nd_claims <- 
+  "NDICLAIMS" %>% 
+  tq_get(get = "economic.data", 
+         from = "1999-01-01") %>% 
+  rename(claims = price) 
+
+nd_claims %>% 
+  slice(1, n())
+```
+
+```{r echo=FALSE}
+(
+nd_claims %>% 
+  ggplot(aes(x = date, y = claims)) +
+  geom_line(color = "cornflowerblue")  +
+  labs(
+    x = "",
+    y = "",
+    title = "North Dakota Unemployment Claims",
+    subtitle = str_glue("{min(nd_claims$date)} through {max(nd_claims$date)}")
+  ) +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::comma)
+) %>% ggplotly()
+```
+
+```{r echo=FALSE}
+nd_claims %>%
+  mutate(
+    year = year(date),
+    month =  month(date, label = T, abbr  = T),
+    week = week(date)
+  ) %>%
+  group_by(year, month) %>%
+  filter(n() >= 4) %>% 
+  summarise(avg_claims = mean(claims)) %>%
+  ggplot(aes(x = avg_claims)) +
+  geom_density(aes(fill = as_factor(month))) +
+  facet_grid(rows = vars(as_factor(month))) +
+  guides(fill = guide_legend(title = "")) +
+  labs(
+    title = "Distribution of Avg Monthly Claims",
+    subtitle = str_glue("{min(nd_claims$date)} through {max(nd_claims$date)}"),
+    y = "",
+    x = ""
+  ) +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  scale_x_continuous(labels = scales::comma)
+```
+
+```{r echo=FALSE}
+(
+  nd_claims %>%
+    mutate(
+      year = year(date),
+      month =  month(date, label = T, abbr  = T)
+    ) %>%
+    group_by(year, month) %>%
+    filter(n() >= 4) %>% 
+    summarise(avg_claims = mean(claims)) %>%
+    mutate(
+      avg_claims_labels = scales::number_format(
+        accuracy = 1,
+        scale = 1 / 1000,
+        suffix = "k",
+        big.mark = ","
+      )(avg_claims)
+    ) %>%
+    ggplot(
+      aes(
+        x = month,
+        y = year,
+        fill = avg_claims,
+        label = avg_claims_labels,
+        text = str_glue("average claims:
+                        {scales::comma(avg_claims)}")
+      )
+    ) +
+    geom_tile(color = "white", size = .8, aes(height = 1)) +
+    scale_fill_gradient(
+      low = "blue",
+      high = "red",
+      labels = scales::comma
+    ) +
+    geom_text(color = "white" , size = 3.5) +
+    theme_minimal() +
+    theme(
+      plot.caption = element_text(hjust = 0),
+      panel.grid.major.y = element_blank(),
+      legend.key.width = unit(1, "cm"),
+      panel.grid = element_blank()
+    ) +
+    labs(
+      y  = "",
+      title = "Heatmap of Monthly Avg Unemployment Insurance Claims",
+      fill = "Avg Claims",
+      x = ""
+    ) +
+    scale_y_continuous(breaks =  scales::pretty_breaks(n = 18))
+) %>% ggplotly(tooltip = "text")
+```
+```{r echo=FALSE}
+(
+  nd_claims %>%
+    mutate(
+      month = month(date, label = TRUE, abbr = FALSE),
+      year = year(date)
+    ) %>%
+    group_by(year) %>%
+    mutate(
+      max_claims = max(claims),
+      max_week_color = case_when(claims == max_claims ~ as.character(date),
+                                 TRUE ~ "NA")
+    ) %>%
+    filter(max_week_color != "NA") %>%
+    ggplot(aes(
+      x = max_week_color,
+      y = claims,
+      fill = month,
+      text = str_glue("{date}
+                      claims: {scales::comma(claims)}")
+    )) +
+    geom_col(width = .5) +
+    labs(
+      x = "",
+      title = str_glue("Highest Unemployment Claims Week, by Year
+                                in North Dakota"),
+      y = ""
+    ) +
+    scale_y_continuous(
+      labels = scales::comma,
+      limits = c(0, NA),
+      breaks = scales::pretty_breaks(n = 6)
+    ) +
+    scale_fill_brewer(palette = "Dark2") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45),
+      plot.title = element_text(hjust = .5)
+    )
+) %>% ggplotly(tooltip = "text")
+```
+```{r}
+
+```
+
